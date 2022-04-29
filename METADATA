@@ -1,0 +1,19 @@
+name: "openssl"
+description: "OpenSSL bindings"
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/openssl"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/sfackler/rust-openssl"
+  }
+  version: "973936042c31a868d0ade4f3bcbd25d317015c05"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 4
+    day: 11
+  }
+}
