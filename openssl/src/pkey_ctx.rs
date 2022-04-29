@@ -64,6 +64,8 @@ use crate::error::ErrorStack;
 use crate::md::MdRef;
 use crate::pkey::{HasPrivate, HasPublic, Id, PKey, PKeyRef, Private};
 use crate::rsa::Padding;
+#[cfg(any(boringssl, ossl102, libressl310))]
+use crate::util;
 use crate::{cvt, cvt_n, cvt_p};
 use foreign_types::{ForeignType, ForeignTypeRef};
 use libc::c_int;
@@ -415,6 +417,7 @@ impl<T> PkeyCtxRef<T> {
     }
 
     /// Sets the cipher used during key generation.
+    #[cfg(not(boringssl))]
     #[corresponds(EVP_PKEY_CTX_ctrl)]
     #[inline]
     pub fn set_keygen_cipher(&mut self, cipher: &CipherRef) -> Result<(), ErrorStack> {
@@ -433,6 +436,7 @@ impl<T> PkeyCtxRef<T> {
     }
 
     /// Sets the key MAC key used during key generation.
+    #[cfg(not(boringssl))]
     #[corresponds(EVP_PKEY_CTX_ctrl)]
     #[inline]
     pub fn set_keygen_mac_key(&mut self, key: &[u8]) -> Result<(), ErrorStack> {
@@ -663,6 +667,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn cmac_keygen() {
         let mut ctx = PkeyCtx::new_id(Id::CMAC).unwrap();
         ctx.keygen_init().unwrap();
