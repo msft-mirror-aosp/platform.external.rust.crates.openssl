@@ -76,7 +76,7 @@ impl Pkcs12 {
     /// * `nid_cert` - `AES_256_CBC` (3.0.0+) or `PBE_WITHSHA1AND40BITRC2_CBC`
     /// * `iter` - `2048`
     /// * `mac_iter` - `2048`
-    /// * `mac_md` - `SHA-256` (3.0.0+) or `SHA-1`
+    /// * `mac_md` - `SHA-256` (3.0.0+) or `SHA-1` (`SHA-1` only for BoringSSL)
     pub fn builder() -> Pkcs12Builder {
         ffi::init();
 
@@ -85,6 +85,7 @@ impl Pkcs12 {
             nid_cert: Nid::UNDEF,
             iter: ffi::PKCS12_DEFAULT_ITER,
             mac_iter: ffi::PKCS12_DEFAULT_ITER,
+            #[cfg(not(boringssl))]
             mac_md: None,
             ca: None,
         }
@@ -102,6 +103,7 @@ pub struct Pkcs12Builder {
     nid_cert: Nid,
     iter: c_int,
     mac_iter: c_int,
+    #[cfg(not(boringssl))]
     mac_md: Option<MessageDigest>,
     ca: Option<Stack<X509>>,
 }
@@ -135,6 +137,7 @@ impl Pkcs12Builder {
     }
 
     /// MAC message digest type
+    #[cfg(not(boringssl))]
     pub fn mac_md(&mut self, md: MessageDigest) -> &mut Self {
         self.mac_md = Some(md);
         self
@@ -178,10 +181,6 @@ impl Pkcs12Builder {
                 .unwrap_or(ptr::null_mut());
             let nid_key = self.nid_key.as_raw();
             let nid_cert = self.nid_cert.as_raw();
-            let md_type = self
-                .mac_md
-                .map(|md_type| md_type.as_ptr())
-                .unwrap_or(ptr::null());
 
             // According to the OpenSSL docs, keytype is a non-standard extension for MSIE,
             // It's values are KEY_SIG or KEY_EX, see the OpenSSL docs for more information:
@@ -202,15 +201,25 @@ impl Pkcs12Builder {
             ))
             .map(Pkcs12)?;
 
-            cvt(ffi::PKCS12_set_mac(
-                pkcs12.as_ptr(),
-                pass.as_ptr(),
-                -1,
-                ptr::null_mut(),
-                0,
-                self.mac_iter,
-                md_type,
-            ))?;
+            #[cfg(not(boringssl))]
+            // BoringSSL does not support overriding the MAC and will always
+            // use SHA-1
+            {
+                let md_type = self
+                    .mac_md
+                    .map(|md_type| md_type.as_ptr())
+                    .unwrap_or(ptr::null());
+
+                cvt(ffi::PKCS12_set_mac(
+                    pkcs12.as_ptr(),
+                    pass.as_ptr(),
+                    -1,
+                    ptr::null_mut(),
+                    0,
+                    self.mac_iter,
+                    md_type,
+                ))?;
+            }
 
             Ok(pkcs12)
         }
