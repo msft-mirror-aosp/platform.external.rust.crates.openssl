@@ -139,6 +139,12 @@ impl MessageDigest {
         self.0
     }
 
+    /// The block size of the digest in bytes.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn block_size(&self) -> usize {
+        unsafe { ffi::EVP_MD_block_size(self.0) as usize }
+    }
+
     /// The size of the digest in bytes.
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn size(&self) -> usize {
@@ -475,6 +481,9 @@ mod tests {
         for test in MD5_TESTS.iter() {
             hash_test(MessageDigest::md5(), test);
         }
+
+        assert_eq!(MessageDigest::md5().block_size(), 64);
+        assert_eq!(MessageDigest::md5().size(), 16);
     }
 
     #[test]
@@ -534,6 +543,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha1(), test);
         }
+
+        assert_eq!(MessageDigest::sha1().block_size(), 64);
+        assert_eq!(MessageDigest::sha1().size(), 20);
     }
 
     #[test]
@@ -546,6 +558,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha256(), test);
         }
+
+        assert_eq!(MessageDigest::sha256().block_size(), 64);
+        assert_eq!(MessageDigest::sha256().size(), 32);
     }
 
     #[cfg(ossl111)]
@@ -559,6 +574,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha3_224(), test);
         }
+
+        assert_eq!(MessageDigest::sha3_224().block_size(), 144);
+        assert_eq!(MessageDigest::sha3_224().size(), 28);
     }
 
     #[cfg(ossl111)]
@@ -572,6 +590,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha3_256(), test);
         }
+
+        assert_eq!(MessageDigest::sha3_256().block_size(), 136);
+        assert_eq!(MessageDigest::sha3_256().size(), 32);
     }
 
     #[cfg(ossl111)]
@@ -585,6 +606,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha3_384(), test);
         }
+
+        assert_eq!(MessageDigest::sha3_384().block_size(), 104);
+        assert_eq!(MessageDigest::sha3_384().size(), 48);
     }
 
     #[cfg(ossl111)]
@@ -598,6 +622,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sha3_512(), test);
         }
+
+        assert_eq!(MessageDigest::sha3_512().block_size(), 72);
+        assert_eq!(MessageDigest::sha3_512().size(), 64);
     }
 
     #[cfg(ossl111)]
@@ -611,6 +638,9 @@ mod tests {
         for test in tests.iter() {
             hash_xof_test(MessageDigest::shake_128(), test);
         }
+
+        assert_eq!(MessageDigest::shake_128().block_size(), 168);
+        assert_eq!(MessageDigest::shake_128().size(), 16);
     }
 
     #[cfg(ossl111)]
@@ -624,6 +654,9 @@ mod tests {
         for test in tests.iter() {
             hash_xof_test(MessageDigest::shake_256(), test);
         }
+
+        assert_eq!(MessageDigest::shake_256().block_size(), 136);
+        assert_eq!(MessageDigest::shake_256().size(), 32);
     }
 
     #[test]
@@ -638,6 +671,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::ripemd160(), test);
         }
+
+        assert_eq!(MessageDigest::ripemd160().block_size(), 64);
+        assert_eq!(MessageDigest::ripemd160().size(), 20);
     }
 
     #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM3")))]
@@ -651,6 +687,9 @@ mod tests {
         for test in tests.iter() {
             hash_test(MessageDigest::sm3(), test);
         }
+
+        assert_eq!(MessageDigest::sm3().block_size(), 64);
+        assert_eq!(MessageDigest::sm3().size(), 32);
     }
 
     #[test]
