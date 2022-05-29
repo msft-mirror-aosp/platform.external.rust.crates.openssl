@@ -49,6 +49,7 @@ rust_library {
     host_supported: true,
     crate_name: "openssl",
     srcs: ["openssl/src/lib.rs"],
+    vendor_available: true,
     edition: "2018",
     cfgs: [
         "boringssl",
