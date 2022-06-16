@@ -93,7 +93,7 @@ impl Id {
     pub const ED25519: Id = Id(ffi::EVP_PKEY_ED25519);
     #[cfg(ossl111)]
     pub const ED448: Id = Id(ffi::EVP_PKEY_ED448);
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub const X25519: Id = Id(ffi::EVP_PKEY_X25519);
     #[cfg(ossl111)]
     pub const X448: Id = Id(ffi::EVP_PKEY_X448);
@@ -243,7 +243,7 @@ where
     /// This function only works for algorithms that support raw public keys.
     /// Currently this is: X25519, ED25519, X448 or ED448
     #[corresponds(EVP_PKEY_get_raw_public_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn raw_public_key(&self) -> Result<Vec<u8>, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -294,7 +294,7 @@ where
     /// This function only works for algorithms that support raw private keys.
     /// Currently this is: HMAC, X25519, ED25519, X448 or ED448
     #[corresponds(EVP_PKEY_get_raw_private_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn raw_private_key(&self) -> Result<Vec<u8>, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -483,7 +483,7 @@ impl PKey<Private> {
     }
 
     /// Generates a new private Ed25519 key
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn generate_x25519() -> Result<PKey<Private>, ErrorStack> {
         PKey::generate_eddsa(Id::X25519)
     }
