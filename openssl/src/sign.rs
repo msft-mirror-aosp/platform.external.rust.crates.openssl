@@ -284,7 +284,7 @@ impl<'a> Signer<'a> {
         self.len_intern()
     }
 
-    #[cfg(not(ossl111))]
+    #[cfg(not(any(boringssl, ossl111)))]
     fn len_intern(&self) -> Result<usize, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -297,7 +297,7 @@ impl<'a> Signer<'a> {
         }
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     fn len_intern(&self) -> Result<usize, ErrorStack> {
         unsafe {
             let mut len = 0;
