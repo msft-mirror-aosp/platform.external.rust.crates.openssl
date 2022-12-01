@@ -47,7 +47,7 @@ use crate::dh::Dh;
 use crate::dsa::Dsa;
 use crate::ec::EcKey;
 use crate::error::ErrorStack;
-#[cfg(ossl110)]
+#[cfg(any(boringssl, ossl110))]
 use crate::pkey_ctx::PkeyCtx;
 use crate::rsa::Rsa;
 use crate::symm::Cipher;
@@ -89,11 +89,11 @@ impl Id {
     #[cfg(ossl110)]
     pub const HKDF: Id = Id(ffi::EVP_PKEY_HKDF);
 
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub const ED25519: Id = Id(ffi::EVP_PKEY_ED25519);
     #[cfg(ossl111)]
     pub const ED448: Id = Id(ffi::EVP_PKEY_ED448);
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub const X25519: Id = Id(ffi::EVP_PKEY_X25519);
     #[cfg(ossl111)]
     pub const X448: Id = Id(ffi::EVP_PKEY_X448);
@@ -243,7 +243,7 @@ where
     /// This function only works for algorithms that support raw public keys.
     /// Currently this is: [`Id::X25519`], [`Id::ED25519`], [`Id::X448`] or [`Id::ED448`].
     #[corresponds(EVP_PKEY_get_raw_public_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn raw_public_key(&self) -> Result<Vec<u8>, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -294,7 +294,7 @@ where
     /// This function only works for algorithms that support raw private keys.
     /// Currently this is: [`Id::HMAC`], [`Id::X25519`], [`Id::ED25519`], [`Id::X448`] or [`Id::ED448`].
     #[corresponds(EVP_PKEY_get_raw_private_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn raw_private_key(&self) -> Result<Vec<u8>, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -475,7 +475,7 @@ impl PKey<Private> {
         ctx.keygen()
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     fn generate_eddsa(id: Id) -> Result<PKey<Private>, ErrorStack> {
         let mut ctx = PkeyCtx::new_id(id)?;
         ctx.keygen_init()?;
@@ -505,7 +505,7 @@ impl PKey<Private> {
     /// assert_eq!(secret.len(), 32);
     /// # Ok(()) }
     /// ```
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn generate_x25519() -> Result<PKey<Private>, ErrorStack> {
         PKey::generate_eddsa(Id::X25519)
     }
@@ -559,7 +559,7 @@ impl PKey<Private> {
     /// assert_eq!(signature.len(), 64);
     /// # Ok(()) }
     /// ```
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn generate_ed25519() -> Result<PKey<Private>, ErrorStack> {
         PKey::generate_eddsa(Id::ED25519)
     }
@@ -709,7 +709,7 @@ impl PKey<Private> {
     ///
     /// Algorithm types that support raw private keys are HMAC, X25519, ED25519, X448 or ED448
     #[corresponds(EVP_PKEY_new_raw_private_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn private_key_from_raw_bytes(
         bytes: &[u8],
         key_type: Id,
@@ -750,7 +750,7 @@ impl PKey<Public> {
     ///
     /// Algorithm types that support raw public keys are X25519, ED25519, X448 or ED448
     #[corresponds(EVP_PKEY_new_raw_public_key)]
-    #[cfg(ossl111)]
+    #[cfg(any(boringssl, ossl111))]
     pub fn public_key_from_raw_bytes(
         bytes: &[u8],
         key_type: Id,

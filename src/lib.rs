@@ -120,6 +120,9 @@
 #![doc(html_root_url = "https://docs.rs/openssl/0.10")]
 #![warn(rust_2018_idioms)]
 
+#[cfg(boringssl)]
+extern crate bssl_ffi as ffi;
+
 #[doc(inline)]
 pub use ffi::init;
 
@@ -155,6 +158,10 @@ pub mod ex_data;
 #[cfg(not(any(libressl, ossl300)))]
 pub mod fips;
 pub mod hash;
+#[cfg(boringssl)]
+pub mod hkdf;
+#[cfg(boringssl)]
+pub mod hmac;
 #[cfg(ossl300)]
 pub mod lib_ctx;
 pub mod md;

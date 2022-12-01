@@ -4,7 +4,7 @@
     "com.android.virt"
   ],
   "device": true,
-  "features": "boringssl",
+  "features": "unstable_boringssl",
   "run": true,
   "vendor-available": true
 }

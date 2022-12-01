@@ -208,6 +208,7 @@ impl Cipher {
         unsafe { CipherRef::from_ptr(ffi::EVP_aes_192_cfb1() as *mut _) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_192_cfb128() -> &'static CipherRef {
         unsafe { CipherRef::from_ptr(ffi::EVP_aes_192_cfb128() as *mut _) }
     }
@@ -253,6 +254,7 @@ impl Cipher {
         unsafe { CipherRef::from_ptr(ffi::EVP_aes_256_cfb1() as *mut _) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_256_cfb128() -> &'static CipherRef {
         unsafe { CipherRef::from_ptr(ffi::EVP_aes_256_cfb128() as *mut _) }
     }
@@ -282,11 +284,13 @@ impl Cipher {
     }
 
     #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
+    #[cfg(not(boringssl))]
     pub fn bf_cbc() -> &'static CipherRef {
         unsafe { CipherRef::from_ptr(ffi::EVP_bf_cbc() as *mut _) }
     }
 
     #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
+    #[cfg(not(boringssl))]
     pub fn bf_ecb() -> &'static CipherRef {
         unsafe { CipherRef::from_ptr(ffi::EVP_bf_ecb() as *mut _) }
     }
