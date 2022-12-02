@@ -6,5 +6,6 @@
   "device": true,
   "features": "unstable_boringssl",
   "run": true,
-  "vendor-available": true
+  "vendor-available": true,
+  "patch": "patches/Android.bp.diff"
 }
