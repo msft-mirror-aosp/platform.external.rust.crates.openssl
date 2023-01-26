@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/openssl
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "openssl"
 description: "OpenSSL bindings"
 third_party {
@@ -6,14 +10,14 @@ third_party {
     value: "https://crates.io/crates/openssl"
   }
   url {
-    type: GIT
-    value: "https://github.com/sfackler/rust-openssl"
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/openssl/openssl-0.10.43.crate"
   }
-  version: "973936042c31a868d0ade4f3bcbd25d317015c05"
+  version: "0.10.43"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 4
-    day: 11
+    month: 12
+    day: 1
   }
 }
