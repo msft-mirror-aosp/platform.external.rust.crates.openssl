@@ -120,7 +120,7 @@
 #![doc(html_root_url = "https://docs.rs/openssl/0.10")]
 #![warn(rust_2018_idioms)]
 
-#[cfg(all(soong,boringssl))]
+#[cfg(all(soong, boringssl))]
 extern crate bssl_ffi as ffi;
 
 #[doc(inline)]
