@@ -1,3 +1,5 @@
+//! Diffie-Hellman key agreement.
+
 use cfg_if::cfg_if;
 use foreign_types::{ForeignType, ForeignTypeRef};
 use std::mem;
@@ -237,7 +239,7 @@ where
 }
 
 cfg_if! {
-    if #[cfg(any(ossl110, libressl270))] {
+    if #[cfg(any(ossl110, libressl270, boringssl))] {
         use ffi::{DH_set0_pqg, DH_get0_pqg, DH_get0_key, DH_set0_key};
     } else {
         #[allow(bad_style)]
