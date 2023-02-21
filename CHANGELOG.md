@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [v0.10.45] - 2022-12-20
+
+### Fixed
+
+* Removed the newly added `CipherCtxRef::minimal_output_size` method, which did not work properly.
+* Added `NO_DEPRECATED_3_0` cfg checks for more APIs.
+
+### Added
+
+* Added `SslRef::add_chain_cert`.
+* Added `PKeyRef::security_bits`.
+* Added `Provider::set_default_search_path`.
+* Added `CipherCtxRef::cipher_final_unchecked`.
+
+## [v0.10.44] - 2022-12-06
+
+### Added
+
+* Added `CipherCtxRef::num`, `CipherCtxRef::minimal_output_size`, and `CipherCtxRef::cipher_update_unchecked`.
+* Improved output buffer size checks in `CipherCtxRef::cipher_update`.
+* Added `X509Lookup::file` and `X509LookupRef::load_cert_file`.
+
 ## [v0.10.43] - 2022-11-23
 
 ### Added
@@ -641,7 +663,9 @@
 
 Look at the [release tags] for information about older releases.
 
-[Unreleased]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.43...master
+[Unreleased]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.45...master
+[v0.10.45]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.44...openssl-v0.10.45
+[v0.10.44]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.43...openssl-v0.10.44
 [v0.10.43]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.42...openssl-v0.10.43
 [v0.10.42]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.41...openssl-v0.10.42
 [v0.10.41]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.40...openssl-v0.10.41
