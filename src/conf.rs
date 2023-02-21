@@ -20,7 +20,6 @@ mod methods {
     impl ConfMethod {
         /// Retrieve handle to the default OpenSSL configuration file processing function.
         #[corresponds(NCONF_default)]
-        #[allow(clippy::should_implement_trait)]
         pub fn default() -> ConfMethod {
             unsafe {
                 ffi::init();
