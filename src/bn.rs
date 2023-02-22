@@ -217,7 +217,6 @@ impl BigNumRef {
     }
 
     /// The cryptographically weak counterpart to `rand_in_range`.
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_pseudo_rand_range)]
     pub fn pseudo_rand_range(&self, rnd: &mut BigNumRef) -> Result<(), ErrorStack> {
         unsafe { cvt(ffi::BN_pseudo_rand_range(rnd.as_ptr(), self.as_ptr())).map(|_| ()) }
@@ -337,7 +336,6 @@ impl BigNumRef {
 
     /// Returns the number of significant bits in `self`.
     #[corresponds(BN_num_bits)]
-    #[allow(clippy::unnecessary_cast)]
     pub fn num_bits(&self) -> i32 {
         unsafe { ffi::BN_num_bits(self.as_ptr()) as i32 }
     }
@@ -386,7 +384,6 @@ impl BigNumRef {
     }
 
     /// The cryptographically weak counterpart to `rand`.  Not suitable for key generation.
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_pseudo_rand)]
     #[allow(clippy::useless_conversion)]
     pub fn pseudo_rand(&mut self, bits: i32, msb: MsbOption, odd: bool) -> Result<(), ErrorStack> {
@@ -724,7 +721,6 @@ impl BigNumRef {
     /// # Return Value
     ///
     /// Returns `true` if `self` is prime with an error probability of less than `0.25 ^ checks`.
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_is_prime_ex)]
     #[allow(clippy::useless_conversion)]
     pub fn is_prime(&self, checks: i32, ctx: &mut BigNumContextRef) -> Result<bool, ErrorStack> {
@@ -748,7 +744,6 @@ impl BigNumRef {
     /// # Return Value
     ///
     /// Returns `true` if `self` is prime with an error probability of less than `0.25 ^ checks`.
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_is_prime_fasttest_ex)]
     #[allow(clippy::useless_conversion)]
     pub fn is_prime_fasttest(
@@ -1392,7 +1387,6 @@ mod tests {
         assert_eq!(a, &(&a << 1) >> 1);
     }
 
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_rand_range() {
         let range = BigNum::from_u32(909_829_283).unwrap();
@@ -1401,7 +1395,6 @@ mod tests {
         assert!(result >= BigNum::from_u32(0).unwrap() && result < range);
     }
 
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_pseudo_rand_range() {
         let range = BigNum::from_u32(909_829_283).unwrap();
@@ -1410,7 +1403,6 @@ mod tests {
         assert!(result >= BigNum::from_u32(0).unwrap() && result < range);
     }
 
-    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_prime_numbers() {
         let a = BigNum::from_u32(19_029_017).unwrap();
