@@ -1867,7 +1867,7 @@ impl SslContextRef {
     ///
     /// A value of 0 means that the cache size is unbounded.
     #[corresponds(SSL_CTX_sess_get_cache_size)]
-    #[allow(clippy::unnecessary_cast)]
+    #[allow(clippy::useless_conversion)]
     pub fn session_cache_size(&self) -> i64 {
         unsafe { ffi::SSL_CTX_sess_get_cache_size(self.as_ptr()) as i64 }
     }
@@ -3104,16 +3104,6 @@ impl SslRef {
             }
         }
     }
-
-    #[corresponds(SSL_add0_chain_cert)]
-    #[cfg(ossl102)]
-    pub fn add_chain_cert(&mut self, chain: X509) -> Result<(), ErrorStack> {
-        unsafe {
-            cvt(ffi::SSL_add0_chain_cert(self.as_ptr(), chain.as_ptr()) as c_int).map(|_| ())?;
-            mem::forget(chain);
-        }
-        Ok(())
-    }
 }
 
 /// An SSL stream midway through the handshake process.
@@ -3289,7 +3279,7 @@ impl<S: Read + Write> SslStream<S> {
             )
         };
         if ret > 0 {
-            Ok(written)
+            Ok(written as usize)
         } else {
             Err(self.make_error(ret))
         }
