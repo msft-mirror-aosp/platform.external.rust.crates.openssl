@@ -120,7 +120,7 @@
 #![doc(html_root_url = "https://docs.rs/openssl/0.10")]
 #![warn(rust_2018_idioms)]
 
-#[cfg(all(soong,boringssl))]
+#[cfg(all(soong, boringssl))]
 extern crate bssl_ffi as ffi;
 
 #[doc(inline)]
@@ -195,6 +195,11 @@ pub mod x509;
 type LenType = libc::size_t;
 #[cfg(not(boringssl))]
 type LenType = libc::c_int;
+
+#[cfg(boringssl)]
+type SignedLenType = libc::ssize_t;
+#[cfg(not(boringssl))]
+type SignedLenType = libc::c_int;
 
 #[inline]
 fn cvt_p<T>(r: *mut T) -> Result<*mut T, ErrorStack> {
