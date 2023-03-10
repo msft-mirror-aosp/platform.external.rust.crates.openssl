@@ -69,4 +69,5 @@ rust_library {
         "com.android.virt",
     ],
     vendor_available: true,
+    product_available: true,
 }
