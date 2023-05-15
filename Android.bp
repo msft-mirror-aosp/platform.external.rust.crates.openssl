@@ -56,7 +56,7 @@ rust_library {
     features: ["unstable_boringssl"],
     cfgs: ["boringssl", "soong"],
     rustlibs: [
-        "libbitflags-1.3.2",
+        "libbitflags",
         "libcfg_if",
         "libbssl_ffi",
         "libforeign_types",
