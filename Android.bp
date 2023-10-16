@@ -45,8 +45,8 @@ license {
     ],
 }
 
-rust_library {
-    name: "libopenssl",
+rust_defaults {
+    name: "libopenssl_defaults",
     host_supported: true,
     crate_name: "openssl",
     cargo_env_compat: true,
@@ -58,7 +58,6 @@ rust_library {
     rustlibs: [
         "libbitflags-1.3.2",
         "libcfg_if",
-        "libbssl_ffi",
         "libforeign_types",
         "liblibc",
         "libonce_cell",
@@ -70,4 +69,16 @@ rust_library {
     ],
     vendor_available: true,
     product_available: true,
+}
+
+rust_library {
+    name: "libopenssl",
+    defaults: ["libopenssl_defaults"],
+    rustlibs: ["libbssl_ffi"],
+}
+
+rust_library_host_rlib {
+    name: "libopenssl_static",
+    defaults: ["libopenssl_defaults"],
+    rlibs: ["libbssl_ffi_static"],
 }
