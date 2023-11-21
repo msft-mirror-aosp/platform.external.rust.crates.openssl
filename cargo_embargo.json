@@ -3,7 +3,7 @@
     "//apex_available:platform",
     "com.android.virt"
   ],
-  "extra_cfg": ["soong"],
+  "extra_cfg": ["boringssl", "soong"],
   "features": [
     "unstable_boringssl"
   ],
@@ -12,6 +12,7 @@
       "patch": "patches/Android.bp.diff"
     }
   },
+  "run_cargo": false,
   "variants": [
     {
       "module_name_overrides": {
