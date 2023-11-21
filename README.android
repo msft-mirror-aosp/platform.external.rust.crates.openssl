@@ -19,10 +19,10 @@
     redshell is not able to access it).
 4.  The repository should now be in a `tmp_auto_upgrade` branch, and the Android.bp will contain
     some error message.
-5.  Run cargo2android
+5.  Run cargo_embargo
 
     ```
-    $ cargo2android.py --config ./cargo2android.json
+    $ cargo_embargo run cargo_embargo.json
     ```
 6.  Clean up the changes in external/boringssl repository, and double check that the resulting
     Android.bp builds correctly by running `m libopenssl`.
