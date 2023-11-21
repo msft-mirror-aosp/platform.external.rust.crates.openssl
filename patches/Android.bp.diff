@@ -1,38 +1,15 @@
 diff --git a/Android.bp b/Android.bp
-index b10f5b0..5214daa 100644
+index 1e027e2..c650f2e 100644
 --- a/Android.bp
 +++ b/Android.bp
-@@ -54,11 +54,11 @@ rust_library {
-     srcs: ["src/lib.rs"],
-     edition: "2018",
-     features: ["unstable_boringssl"],
--    cfgs: ["boringssl"],
-+    cfgs: ["boringssl", "soong"],
-     rustlibs: [
-         "libbitflags-1.3.2",
-         "libcfg_if",
--        "libopenssl_sys",
-+        "libbssl_ffi",
+@@ -93,7 +93,9 @@ rust_library_host_rlib {
          "libforeign_types",
          "liblibc",
          "libonce_cell",
-@@ -81,15 +81,17 @@ rust_library {
-     srcs: ["src/lib.rs"],
-     edition: "2018",
-     features: ["unstable_boringssl"],
--    cfgs: ["boringssl"],
-+    cfgs: ["boringssl", "soong"],
-     rustlibs: [
-         "libbitflags-1.3.2",
-         "libcfg_if",
 -        "libopenssl_sys",
-         "libforeign_types",
-         "liblibc",
-         "libonce_cell",
-     ],
++    ],
 +    rlibs: [
 +        "libbssl_ffi_static",
-+    ],
+     ],
      proc_macros: ["libopenssl_macros"],
-     apex_available: [
-         "//apex_available:platform",
+ }
