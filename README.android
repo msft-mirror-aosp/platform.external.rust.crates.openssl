@@ -4,16 +4,15 @@
     built. Copy `googletest` to `boringssl`, which is needed to build the rust bindings
 
     ```
-    $ cp -r external/googletest/googletest external/boringssl/src/third_party/
+    $ cp -r external/googletest external/boringssl/src/third_party/
     ```
 2.  Build the rust bindings (More information at
     https://boringssl.googlesource.com/boringssl/+/HEAD/BUILDING.md)
 
     ```
-    $ cd external/boringssl
-    $ mkdir build && cd build
-    $ cmake .. -DRUST_BINDINGS=x86_64-unknown-linux-gnu
-    $ make
+    $ cd external/boringssl/src
+    $ cmake -DRUST_BINDINGS=x86_64-unknown-linux-gnu -B build
+    $ make -C build
     ```
 3.  Run `tools/external_updater/updater.sh update rust/crates/openssl`. Cargo errors causing the
     command to fail are expected (since the boringSSL crate is outside of the `openssl` directory,
