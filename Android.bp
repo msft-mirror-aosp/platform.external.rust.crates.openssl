@@ -10,7 +10,7 @@
 //
 // Even if upstreamed, cargo2android.py will likely never run correctly on
 // this package without modification because boringssl does not intend to
-// publish "bssl-ffi" on crates.io, since it needs to match the exact local
+// publish "bssl-sys" on crates.io, since it needs to match the exact local
 // version of boringssl.
 
 package {
@@ -58,7 +58,7 @@ rust_library {
     rustlibs: [
         "libbitflags",
         "libcfg_if",
-        "libbssl_ffi",
+        "libbssl_sys",
         "libforeign_types",
         "liblibc",
         "libonce_cell",

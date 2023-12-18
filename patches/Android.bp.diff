@@ -12,7 +12,7 @@ index 2282c66..4e9011c 100644
          "libbitflags",
          "libcfg_if",
 -        "libopenssl_sys",
-+        "libbssl_ffi",
++        "libbssl_sys",
          "libforeign_types",
          "liblibc",
          "libonce_cell",

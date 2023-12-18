@@ -5,7 +5,7 @@ index 0000000..e2b197d
 +++ b/.cargo/config.toml
 @@ -0,0 +1,2 @@
 +[patch.crates-io]
-+bssl-ffi = { package = "bssl-sys", version = "0.1.0", path = "../../../boringssl/build/rust", optional=true }
++bssl-sys = { version = "0.1.0", path = "../../../boringssl/build/rust", optional=true }
 diff --git a/src/cipher.rs b/src/cipher.rs
 index ab5f49d..84a8265 100644
 --- a/src/cipher.rs
@@ -71,7 +71,7 @@ index 891651e..f149bfd 100644
  #![warn(rust_2018_idioms)]
  
 +#[cfg(all(soong, boringssl))]
-+extern crate bssl_ffi as ffi;
++extern crate bssl_sys as ffi;
 +
  #[doc(inline)]
  pub use ffi::init;
