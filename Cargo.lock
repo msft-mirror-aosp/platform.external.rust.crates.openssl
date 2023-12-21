@@ -60,8 +60,6 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 [[package]]
 name = "bssl-sys"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "312d12393c060384f2e6ed14c7b4be37b3dd90249857485613c1a91b9a1abb5c"
 
 [[package]]
 name = "cc"
