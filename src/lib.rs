@@ -121,7 +121,7 @@
 #![warn(rust_2018_idioms)]
 
 #[cfg(all(soong, boringssl))]
-extern crate bssl_ffi as ffi;
+extern crate bssl_sys as ffi;
 
 #[doc(inline)]
 pub use ffi::init;
