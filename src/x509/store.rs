@@ -49,6 +49,7 @@ use crate::error::ErrorStack;
 #[cfg(not(boringssl))]
 use crate::ssl::SslFiletype;
 use crate::stack::StackRef;
+use crate::util::ForeignTypeRefExt;
 #[cfg(any(ossl102, libressl261))]
 use crate::x509::verify::{X509VerifyFlags, X509VerifyParamRef};
 use crate::x509::{X509Object, X509};
@@ -156,7 +157,7 @@ impl X509Lookup<HashDir> {
     /// directory.
     #[corresponds(X509_LOOKUP_hash_dir)]
     pub fn hash_dir() -> &'static X509LookupMethodRef<HashDir> {
-        unsafe { X509LookupMethodRef::from_ptr(ffi::X509_LOOKUP_hash_dir()) }
+        unsafe { X509LookupMethodRef::from_const_ptr(ffi::X509_LOOKUP_hash_dir()) }
     }
 }
 
@@ -188,7 +189,7 @@ impl X509Lookup<File> {
     /// into memory at the time the file is added as a lookup source.
     #[corresponds(X509_LOOKUP_file)]
     pub fn file() -> &'static X509LookupMethodRef<File> {
-        unsafe { X509LookupMethodRef::from_ptr(ffi::X509_LOOKUP_file()) }
+        unsafe { X509LookupMethodRef::from_const_ptr(ffi::X509_LOOKUP_file()) }
     }
 }
 
