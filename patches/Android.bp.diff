@@ -9,7 +9,7 @@ index 1e027e2..c650f2e 100644
 -        "libopenssl_sys",
 +    ],
 +    rlibs: [
-+        "libbssl_ffi_static",
++        "libbssl_sys_static",
      ],
      proc_macros: ["libopenssl_macros"],
  }
