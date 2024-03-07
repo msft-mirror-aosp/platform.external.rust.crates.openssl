@@ -44,20 +44,20 @@ pub struct SignatureAlgorithms {
 /// The following documentation provides context about `Nid`s and their usage
 /// in OpenSSL.
 ///
-/// - [Obj_nid2obj](https://www.openssl.org/docs/man1.1.0/crypto/OBJ_create.html)
+/// - [Obj_nid2obj](https://www.openssl.org/docs/manmaster/crypto/OBJ_create.html)
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Nid(c_int);
 
 #[allow(non_snake_case)]
 impl Nid {
     /// Create a `Nid` from an integer representation.
-    pub fn from_raw(raw: c_int) -> Nid {
+    pub const fn from_raw(raw: c_int) -> Nid {
         Nid(raw)
     }
 
     /// Return the integer representation of a `Nid`.
     #[allow(clippy::trivially_copy_pass_by_ref)]
-    pub fn as_raw(&self) -> c_int {
+    pub const fn as_raw(&self) -> c_int {
         self.0
     }
 
@@ -215,11 +215,13 @@ impl Nid {
     pub const SECT409R1: Nid = Nid(ffi::NID_sect409r1);
     pub const SECT571K1: Nid = Nid(ffi::NID_sect571k1);
     pub const SECT571R1: Nid = Nid(ffi::NID_sect571r1);
-    #[cfg(ossl110)]
+    #[cfg(any(ossl110, libressl))]
     pub const BRAINPOOL_P256R1: Nid = Nid(ffi::NID_brainpoolP256r1);
-    #[cfg(ossl110)]
+    #[cfg(any(ossl110, libressl))]
+    pub const BRAINPOOL_P320R1: Nid = Nid(ffi::NID_brainpoolP320r1);
+    #[cfg(any(ossl110, libressl))]
     pub const BRAINPOOL_P384R1: Nid = Nid(ffi::NID_brainpoolP384r1);
-    #[cfg(ossl110)]
+    #[cfg(any(ossl110, libressl))]
     pub const BRAINPOOL_P512R1: Nid = Nid(ffi::NID_brainpoolP512r1);
     pub const WAP_WSG_IDM_ECID_WTLS1: Nid = Nid(ffi::NID_wap_wsg_idm_ecid_wtls1);
     pub const WAP_WSG_IDM_ECID_WTLS3: Nid = Nid(ffi::NID_wap_wsg_idm_ecid_wtls3);
@@ -1074,20 +1076,24 @@ impl Nid {
     pub const AES_128_CBC_HMAC_SHA1: Nid = Nid(ffi::NID_aes_128_cbc_hmac_sha1);
     pub const AES_192_CBC_HMAC_SHA1: Nid = Nid(ffi::NID_aes_192_cbc_hmac_sha1);
     pub const AES_256_CBC_HMAC_SHA1: Nid = Nid(ffi::NID_aes_256_cbc_hmac_sha1);
+    #[cfg(ossl111)]
+    pub const SM2: Nid = Nid(ffi::NID_sm2);
     #[cfg(any(ossl111, libressl291))]
     pub const SM3: Nid = Nid(ffi::NID_sm3);
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     pub const SHA3_224: Nid = Nid(ffi::NID_sha3_224);
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     pub const SHA3_256: Nid = Nid(ffi::NID_sha3_256);
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     pub const SHA3_384: Nid = Nid(ffi::NID_sha3_384);
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     pub const SHA3_512: Nid = Nid(ffi::NID_sha3_512);
     #[cfg(ossl111)]
     pub const SHAKE128: Nid = Nid(ffi::NID_shake128);
     #[cfg(ossl111)]
     pub const SHAKE256: Nid = Nid(ffi::NID_shake256);
+    #[cfg(any(ossl110, libressl271))]
+    pub const CHACHA20_POLY1305: Nid = Nid(ffi::NID_chacha20_poly1305);
 }
 
 #[cfg(test)]
@@ -1165,10 +1171,13 @@ mod test {
         assert_eq!(nid.short_name().unwrap(), "foo");
         assert_eq!(nid.long_name().unwrap(), "foobar");
 
-        let invalid_oid = Nid::create("invalid_oid", "invalid", "invalid");
-        assert!(
-            invalid_oid.is_err(),
-            "invalid_oid should not return a valid value"
-        );
+        // Due to a bug in OpenSSL 3.1.0, this test crashes on Windows
+        if !cfg!(ossl310) {
+            let invalid_oid = Nid::create("invalid_oid", "invalid", "invalid");
+            assert!(
+                invalid_oid.is_err(),
+                "invalid_oid should not return a valid value"
+            );
+        }
     }
 }
