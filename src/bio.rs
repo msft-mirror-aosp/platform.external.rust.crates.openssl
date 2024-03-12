@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::ptr;
 use std::slice;
 
-use crate::{cvt_p, SignedLenType};
+use crate::cvt_p;
 use crate::error::ErrorStack;
 
 pub struct MemBioSlice<'a>(*mut ffi::BIO, PhantomData<&'a [u8]>);
@@ -25,7 +25,7 @@ impl<'a> MemBioSlice<'a> {
         let bio = unsafe {
             cvt_p(BIO_new_mem_buf(
                 buf.as_ptr() as *const _,
-                buf.len() as SignedLenType,
+                buf.len() as crate::SLenType,
             ))?
         };
 
@@ -74,11 +74,11 @@ impl MemBio {
 }
 
 cfg_if! {
-    if #[cfg(ossl102)] {
+    if #[cfg(any(ossl102, boringssl))] {
         use ffi::BIO_new_mem_buf;
     } else {
         #[allow(bad_style)]
-        unsafe fn BIO_new_mem_buf(buf: *const ::libc::c_void, len: SignedLenType) -> *mut ffi::BIO {
+        unsafe fn BIO_new_mem_buf(buf: *const ::libc::c_void, len: ::libc::c_int) -> *mut ffi::BIO {
             ffi::BIO_new_mem_buf(buf as *mut _, len)
         }
     }

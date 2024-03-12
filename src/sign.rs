@@ -81,7 +81,7 @@ use crate::rsa::Padding;
 use crate::{cvt, cvt_p};
 
 cfg_if! {
-    if #[cfg(ossl110)] {
+    if #[cfg(any(ossl110, libressl382))] {
         use ffi::{EVP_MD_CTX_free, EVP_MD_CTX_new};
     } else {
         use ffi::{EVP_MD_CTX_create as EVP_MD_CTX_new, EVP_MD_CTX_destroy as EVP_MD_CTX_free};
@@ -93,7 +93,7 @@ pub struct RsaPssSaltlen(c_int);
 
 impl RsaPssSaltlen {
     /// Returns the integer representation of `RsaPssSaltlen`.
-    fn as_raw(&self) -> c_int {
+    pub(crate) fn as_raw(&self) -> c_int {
         self.0
     }
 
@@ -117,10 +117,10 @@ pub struct Signer<'a> {
     _p: PhantomData<&'a ()>,
 }
 
-unsafe impl<'a> Sync for Signer<'a> {}
-unsafe impl<'a> Send for Signer<'a> {}
+unsafe impl Sync for Signer<'_> {}
+unsafe impl Send for Signer<'_> {}
 
-impl<'a> Drop for Signer<'a> {
+impl Drop for Signer<'_> {
     fn drop(&mut self) {
         // pkey_ctx is owned by the md_ctx, so no need to explicitly free it.
         unsafe {
@@ -130,7 +130,7 @@ impl<'a> Drop for Signer<'a> {
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<'a> Signer<'a> {
+impl Signer<'_> {
     /// Creates a new `Signer`.
     ///
     /// This cannot be used with Ed25519 or Ed448 keys. Please refer to
@@ -139,7 +139,7 @@ impl<'a> Signer<'a> {
     /// OpenSSL documentation at [`EVP_DigestSignInit`].
     ///
     /// [`EVP_DigestSignInit`]: https://www.openssl.org/docs/manmaster/man3/EVP_DigestSignInit.html
-    pub fn new<T>(type_: MessageDigest, pkey: &'a PKeyRef<T>) -> Result<Signer<'a>, ErrorStack>
+    pub fn new<'a, T>(type_: MessageDigest, pkey: &PKeyRef<T>) -> Result<Signer<'a>, ErrorStack>
     where
         T: HasPrivate,
     {
@@ -154,16 +154,16 @@ impl<'a> Signer<'a> {
     /// OpenSSL documentation at [`EVP_DigestSignInit`].
     ///
     /// [`EVP_DigestSignInit`]: https://www.openssl.org/docs/manmaster/man3/EVP_DigestSignInit.html
-    pub fn new_without_digest<T>(pkey: &'a PKeyRef<T>) -> Result<Signer<'a>, ErrorStack>
+    pub fn new_without_digest<'a, T>(pkey: &PKeyRef<T>) -> Result<Signer<'a>, ErrorStack>
     where
         T: HasPrivate,
     {
         Self::new_intern(None, pkey)
     }
 
-    fn new_intern<T>(
+    fn new_intern<'a, T>(
         type_: Option<MessageDigest>,
-        pkey: &'a PKeyRef<T>,
+        pkey: &PKeyRef<T>,
     ) -> Result<Signer<'a>, ErrorStack>
     where
         T: HasPrivate,
@@ -214,7 +214,7 @@ impl<'a> Signer<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_padding`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_padding.html
+    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_padding.html
     pub fn set_rsa_padding(&mut self, padding: Padding) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_padding(
@@ -231,7 +231,7 @@ impl<'a> Signer<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_pss_saltlen`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_pss_saltlen`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_pss_saltlen.html
+    /// [`EVP_PKEY_CTX_set_rsa_pss_saltlen`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_pss_saltlen.html
     pub fn set_rsa_pss_saltlen(&mut self, len: RsaPssSaltlen) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_pss_saltlen(
@@ -285,12 +285,12 @@ impl<'a> Signer<'a> {
     ///
     /// OpenSSL documentation at [`EVP_DigestSignFinal`].
     ///
-    /// [`EVP_DigestSignFinal`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_DigestSignFinal.html
+    /// [`EVP_DigestSignFinal`]: https://www.openssl.org/docs/manmaster/crypto/EVP_DigestSignFinal.html
     pub fn len(&self) -> Result<usize, ErrorStack> {
         self.len_intern()
     }
 
-    #[cfg(not(any(boringssl, ossl111)))]
+    #[cfg(all(not(ossl111), not(boringssl), not(libressl370)))]
     fn len_intern(&self) -> Result<usize, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -303,7 +303,7 @@ impl<'a> Signer<'a> {
         }
     }
 
-    #[cfg(any(boringssl, ossl111))]
+    #[cfg(any(ossl111, boringssl, libressl370))]
     fn len_intern(&self) -> Result<usize, ErrorStack> {
         unsafe {
             let mut len = 0;
@@ -325,7 +325,7 @@ impl<'a> Signer<'a> {
     ///
     /// OpenSSL documentation at [`EVP_DigestSignFinal`].
     ///
-    /// [`EVP_DigestSignFinal`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_DigestSignFinal.html
+    /// [`EVP_DigestSignFinal`]: https://www.openssl.org/docs/manmaster/crypto/EVP_DigestSignFinal.html
     pub fn sign(&self, buf: &mut [u8]) -> Result<usize, ErrorStack> {
         unsafe {
             let mut len = buf.len();
@@ -360,7 +360,7 @@ impl<'a> Signer<'a> {
     /// OpenSSL documentation at [`EVP_DigestSign`].
     ///
     /// [`EVP_DigestSign`]: https://www.openssl.org/docs/man1.1.1/man3/EVP_DigestSign.html
-    #[cfg(any(boringssl, ossl111))]
+    #[cfg(any(ossl111, boringssl, libressl370))]
     pub fn sign_oneshot(
         &mut self,
         sig_buf: &mut [u8],
@@ -382,7 +382,7 @@ impl<'a> Signer<'a> {
     /// Returns the signature.
     ///
     /// This is a simple convenience wrapper over `len` and `sign_oneshot`.
-    #[cfg(any(boringssl, ossl111))]
+    #[cfg(any(ossl111, boringssl, libressl370))]
     pub fn sign_oneshot_to_vec(&mut self, data_buf: &[u8]) -> Result<Vec<u8>, ErrorStack> {
         let mut sig_buf = vec![0; self.len()?];
         let len = self.sign_oneshot(&mut sig_buf, data_buf)?;
@@ -507,7 +507,7 @@ impl<'a> Verifier<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_padding`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_padding.html
+    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_padding.html
     pub fn set_rsa_padding(&mut self, padding: Padding) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_padding(
@@ -524,7 +524,7 @@ impl<'a> Verifier<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_pss_saltlen`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_pss_saltlen`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_pss_saltlen.html
+    /// [`EVP_PKEY_CTX_set_rsa_pss_saltlen`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_pss_saltlen.html
     pub fn set_rsa_pss_saltlen(&mut self, len: RsaPssSaltlen) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_pss_saltlen(
@@ -596,7 +596,7 @@ impl<'a> Verifier<'a> {
     /// OpenSSL documentation at [`EVP_DigestVerify`].
     ///
     /// [`EVP_DigestVerify`]: https://www.openssl.org/docs/man1.1.1/man3/EVP_DigestVerify.html
-    #[cfg(any(boringssl, ossl111))]
+    #[cfg(any(ossl111, boringssl, libressl370))]
     pub fn verify_oneshot(&mut self, signature: &[u8], buf: &[u8]) -> Result<bool, ErrorStack> {
         unsafe {
             let r = ffi::EVP_DigestVerify(
@@ -711,7 +711,7 @@ mod test {
 
     #[cfg(not(boringssl))]
     fn test_hmac(ty: MessageDigest, tests: &[(Vec<u8>, Vec<u8>, Vec<u8>)]) {
-        for &(ref key, ref data, ref res) in tests.iter() {
+        for (key, data, res) in tests.iter() {
             let pkey = PKey::hmac(key).unwrap();
             let mut signer = Signer::new(ty, &pkey).unwrap();
             signer.update(data).unwrap();
@@ -846,7 +846,7 @@ mod test {
     }
 
     #[test]
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, boringssl, libressl370))]
     fn eddsa() {
         let key = PKey::generate_ed25519().unwrap();
 
