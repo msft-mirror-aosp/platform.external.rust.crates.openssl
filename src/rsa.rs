@@ -234,6 +234,7 @@ where
 
     /// Validates RSA parameters for correctness
     #[corresponds(RSA_check_key)]
+    #[allow(clippy::unnecessary_cast)]
     pub fn check_key(&self) -> Result<bool, ErrorStack> {
         unsafe {
             let result = ffi::RSA_check_key(self.as_ptr()) as i32;
@@ -580,7 +581,7 @@ impl<T> fmt::Debug for Rsa<T> {
 }
 
 cfg_if! {
-    if #[cfg(any(ossl110, libressl273))] {
+    if #[cfg(any(ossl110, libressl273, boringssl))] {
         use ffi::{
             RSA_get0_key, RSA_get0_factors, RSA_get0_crt_params, RSA_set0_key, RSA_set0_factors,
             RSA_set0_crt_params,

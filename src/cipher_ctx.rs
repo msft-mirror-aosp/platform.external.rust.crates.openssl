@@ -55,6 +55,8 @@ use crate::error::ErrorStack;
 #[cfg(not(boringssl))]
 use crate::pkey::{HasPrivate, HasPublic, PKey, PKeyRef};
 use crate::{cvt, cvt_p};
+#[cfg(ossl102)]
+use bitflags::bitflags;
 use cfg_if::cfg_if;
 use foreign_types::{ForeignType, ForeignTypeRef};
 use libc::{c_int, c_uchar};
@@ -80,6 +82,15 @@ foreign_type_and_impl_send_sync! {
     pub struct CipherCtxRef;
 }
 
+#[cfg(ossl102)]
+bitflags! {
+    /// Flags for `EVP_CIPHER_CTX`.
+    pub struct CipherCtxFlags : c_int {
+        /// The flag used to opt into AES key wrap ciphers.
+        const FLAG_WRAP_ALLOW = ffi::EVP_CIPHER_CTX_FLAG_WRAP_ALLOW;
+    }
+}
+
 impl CipherCtx {
     /// Creates a new context.
     #[corresponds(EVP_CIPHER_CTX_new)]
@@ -94,6 +105,14 @@ impl CipherCtx {
 }
 
 impl CipherCtxRef {
+    #[corresponds(EVP_CIPHER_CTX_copy)]
+    pub fn copy(&mut self, src: &CipherCtxRef) -> Result<(), ErrorStack> {
+        unsafe {
+            cvt(ffi::EVP_CIPHER_CTX_copy(self.as_ptr(), src.as_ptr()))?;
+            Ok(())
+        }
+    }
+
     /// Initializes the context for encryption.
     ///
     /// Normally this is called once to set all of the cipher, key, and IV. However, this process can be split up
@@ -363,6 +382,22 @@ impl CipherCtxRef {
         unsafe { ffi::EVP_CIPHER_CTX_iv_length(self.as_ptr()) as usize }
     }
 
+    /// Returns the `num` parameter of the cipher.
+    ///
+    /// Built-in ciphers typically use this to track how much of the
+    /// current underlying block has been "used" already.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the context has not been initialized with a cipher.
+    #[corresponds(EVP_CIPHER_CTX_num)]
+    #[cfg(ossl110)]
+    pub fn num(&self) -> usize {
+        self.assert_cipher();
+
+        unsafe { ffi::EVP_CIPHER_CTX_num(self.as_ptr()) as usize }
+    }
+
     /// Sets the length of the IV expected by this context.
     ///
     /// Only some ciphers support configurable IV lengths.
@@ -370,7 +405,7 @@ impl CipherCtxRef {
     /// # Panics
     ///
     /// Panics if the context has not been initialized with a cipher.
-    #[corresponds(EVP_CIHPER_CTX_ctrl)]
+    #[corresponds(EVP_CIPHER_CTX_ctrl)]
     pub fn set_iv_length(&mut self, len: usize) -> Result<(), ErrorStack> {
         self.assert_cipher();
 
@@ -493,6 +528,17 @@ impl CipherCtxRef {
         Ok(())
     }
 
+    /// Set ctx flags.
+    ///
+    /// This function is currently used to enable AES key wrap feature supported by OpenSSL 1.0.2 or newer.
+    #[corresponds(EVP_CIPHER_CTX_set_flags)]
+    #[cfg(ossl102)]
+    pub fn set_flags(&mut self, flags: CipherCtxFlags) {
+        unsafe {
+            ffi::EVP_CIPHER_CTX_set_flags(self.as_ptr(), flags.bits());
+        }
+    }
+
     /// Writes data into the context.
     ///
     /// Providing no output buffer will cause the input to be considered additional authenticated data (AAD).
@@ -501,33 +547,64 @@ impl CipherCtxRef {
     ///
     /// # Panics
     ///
-    /// Panics if `output.len()` is less than `input.len()` plus the cipher's block size.
+    /// Panics if `output` doesn't contain enough space for data to be
+    /// written.
     #[corresponds(EVP_CipherUpdate)]
     pub fn cipher_update(
         &mut self,
         input: &[u8],
         output: Option<&mut [u8]>,
     ) -> Result<usize, ErrorStack> {
-        let inlen = c_int::try_from(input.len()).unwrap();
-
         if let Some(output) = &output {
             let mut block_size = self.block_size();
             if block_size == 1 {
                 block_size = 0;
             }
-            assert!(output.len() >= input.len() + block_size);
+            let min_output_size = input.len() + block_size;
+            assert!(
+                output.len() >= min_output_size,
+                "Output buffer size should be at least {} bytes.",
+                min_output_size
+            );
         }
 
+        unsafe { self.cipher_update_unchecked(input, output) }
+    }
+
+    /// Writes data into the context.
+    ///
+    /// Providing no output buffer will cause the input to be considered additional authenticated data (AAD).
+    ///
+    /// Returns the number of bytes written to `output`.
+    ///
+    /// This function is the same as [`Self::cipher_update`] but with the
+    /// output size check removed. It can be used when the exact
+    /// buffer size control is maintained by the caller.
+    ///
+    /// # Safety
+    ///
+    /// The caller is expected to provide `output` buffer
+    /// large enough to contain correct number of bytes. For streaming
+    /// ciphers the output buffer size should be at least as big as
+    /// the input buffer. For block ciphers the size of the output
+    /// buffer depends on the state of partially updated blocks.
+    #[corresponds(EVP_CipherUpdate)]
+    pub unsafe fn cipher_update_unchecked(
+        &mut self,
+        input: &[u8],
+        output: Option<&mut [u8]>,
+    ) -> Result<usize, ErrorStack> {
+        let inlen = c_int::try_from(input.len()).unwrap();
+
         let mut outlen = 0;
-        unsafe {
-            cvt(ffi::EVP_CipherUpdate(
-                self.as_ptr(),
-                output.map_or(ptr::null_mut(), |b| b.as_mut_ptr()),
-                &mut outlen,
-                input.as_ptr(),
-                inlen,
-            ))?;
-        }
+
+        cvt(ffi::EVP_CipherUpdate(
+            self.as_ptr(),
+            output.map_or(ptr::null_mut(), |b| b.as_mut_ptr()),
+            &mut outlen,
+            input.as_ptr(),
+            inlen,
+        ))?;
 
         Ok(outlen as usize)
     }
@@ -546,6 +623,50 @@ impl CipherCtxRef {
         Ok(len)
     }
 
+    /// Like [`Self::cipher_update`] except that it writes output into the
+    /// `data` buffer. The `inlen` parameter specifies the number of bytes in
+    /// `data` that are considered the input. For streaming ciphers, the size of
+    /// `data` must be at least the input size. Otherwise, it must be at least
+    /// an additional block size larger.
+    ///
+    /// Note: Use [`Self::cipher_update`] with no output argument to write AAD.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the input size cannot be represented as `int` or
+    /// exceeds the buffer size, or if the output buffer does not contain enough
+    /// additional space.
+    #[corresponds(EVP_CipherUpdate)]
+    pub fn cipher_update_inplace(
+        &mut self,
+        data: &mut [u8],
+        inlen: usize,
+    ) -> Result<usize, ErrorStack> {
+        assert!(inlen <= data.len(), "Input size may not exceed buffer size");
+        let block_size = self.block_size();
+        if block_size != 1 {
+            assert!(
+                data.len() >= inlen + block_size,
+                "Output buffer size must be at least {} bytes.",
+                inlen + block_size
+            );
+        }
+
+        let inlen = c_int::try_from(inlen).unwrap();
+        let mut outlen = 0;
+        unsafe {
+            cvt(ffi::EVP_CipherUpdate(
+                self.as_ptr(),
+                data.as_mut_ptr(),
+                &mut outlen,
+                data.as_ptr(),
+                inlen,
+            ))
+        }?;
+
+        Ok(outlen as usize)
+    }
+
     /// Finalizes the encryption or decryption process.
     ///
     /// Any remaining data will be written to the output buffer.
@@ -562,14 +683,36 @@ impl CipherCtxRef {
             assert!(output.len() >= block_size);
         }
 
+        unsafe { self.cipher_final_unchecked(output) }
+    }
+
+    /// Finalizes the encryption or decryption process.
+    ///
+    /// Any remaining data will be written to the output buffer.
+    ///
+    /// Returns the number of bytes written to `output`.
+    ///
+    /// This function is the same as [`Self::cipher_final`] but with
+    /// the output buffer size check removed.
+    ///
+    /// # Safety
+    ///
+    /// The caller is expected to provide `output` buffer
+    /// large enough to contain correct number of bytes. For streaming
+    /// ciphers the output buffer can be empty, for block ciphers the
+    /// output buffer should be at least as big as the block.
+    #[corresponds(EVP_CipherFinal)]
+    pub unsafe fn cipher_final_unchecked(
+        &mut self,
+        output: &mut [u8],
+    ) -> Result<usize, ErrorStack> {
         let mut outl = 0;
-        unsafe {
-            cvt(ffi::EVP_CipherFinal(
-                self.as_ptr(),
-                output.as_mut_ptr(),
-                &mut outl,
-            ))?;
-        }
+
+        cvt(ffi::EVP_CipherFinal(
+            self.as_ptr(),
+            output.as_mut_ptr(),
+            &mut outl,
+        ))?;
 
         Ok(outl as usize)
     }
@@ -588,7 +731,7 @@ impl CipherCtxRef {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cipher::Cipher;
+    use crate::{cipher::Cipher, rand::rand_bytes};
     #[cfg(not(boringssl))]
     use std::slice;
 
@@ -668,5 +811,300 @@ mod test {
     fn default_aes_128_cbc() {
         let cipher = Cipher::aes_128_cbc();
         aes_128_cbc(cipher);
+    }
+
+    #[test]
+    fn test_stream_ciphers() {
+        test_stream_cipher(Cipher::aes_192_ctr());
+        test_stream_cipher(Cipher::aes_256_ctr());
+    }
+
+    fn test_stream_cipher(cipher: &'static CipherRef) {
+        let mut key = vec![0; cipher.key_length()];
+        rand_bytes(&mut key).unwrap();
+        let mut iv = vec![0; cipher.iv_length()];
+        rand_bytes(&mut iv).unwrap();
+
+        let mut ctx = CipherCtx::new().unwrap();
+
+        ctx.encrypt_init(Some(cipher), Some(&key), Some(&iv))
+            .unwrap();
+        ctx.set_padding(false);
+
+        assert_eq!(
+            1,
+            cipher.block_size(),
+            "Need a stream cipher, not a block cipher"
+        );
+
+        // update cipher with non-full block
+        // this is a streaming cipher so the number of output bytes
+        // will be the same as the number of input bytes
+        let mut output = vec![0; 32];
+        let outlen = ctx
+            .cipher_update(&[1; 15], Some(&mut output[0..15]))
+            .unwrap();
+        assert_eq!(15, outlen);
+
+        // update cipher with missing bytes from the previous block
+        // as previously it will output the same number of bytes as
+        // the input
+        let outlen = ctx
+            .cipher_update(&[1; 17], Some(&mut output[15..]))
+            .unwrap();
+        assert_eq!(17, outlen);
+
+        ctx.cipher_final_vec(&mut vec![0; 0]).unwrap();
+
+        // encrypt again, but use in-place encryption this time
+        // First reset the IV
+        ctx.encrypt_init(None, None, Some(&iv)).unwrap();
+        ctx.set_padding(false);
+        let mut data_inplace: [u8; 32] = [1; 32];
+        let outlen = ctx
+            .cipher_update_inplace(&mut data_inplace[0..15], 15)
+            .unwrap();
+        assert_eq!(15, outlen);
+
+        let outlen = ctx
+            .cipher_update_inplace(&mut data_inplace[15..32], 17)
+            .unwrap();
+        assert_eq!(17, outlen);
+
+        ctx.cipher_final(&mut [0u8; 0]).unwrap();
+
+        // Check that the resulting data is encrypted in the same manner
+        assert_eq!(data_inplace.as_slice(), output.as_slice());
+
+        // try to decrypt
+        ctx.decrypt_init(Some(cipher), Some(&key), Some(&iv))
+            .unwrap();
+        ctx.set_padding(false);
+
+        // update cipher with non-full block
+        // expect that the output for stream cipher will contain
+        // the same number of bytes as the input
+        let mut output_decrypted = vec![0; 32];
+        let outlen = ctx
+            .cipher_update(&output[0..15], Some(&mut output_decrypted[0..15]))
+            .unwrap();
+        assert_eq!(15, outlen);
+
+        let outlen = ctx
+            .cipher_update(&output[15..], Some(&mut output_decrypted[15..]))
+            .unwrap();
+        assert_eq!(17, outlen);
+
+        ctx.cipher_final_vec(&mut vec![0; 0]).unwrap();
+        // check if the decrypted blocks are the same as input (all ones)
+        assert_eq!(output_decrypted, vec![1; 32]);
+
+        // decrypt again, but now the output in-place
+        ctx.decrypt_init(None, None, Some(&iv)).unwrap();
+        ctx.set_padding(false);
+
+        let outlen = ctx.cipher_update_inplace(&mut output[0..15], 15).unwrap();
+        assert_eq!(15, outlen);
+
+        let outlen = ctx.cipher_update_inplace(&mut output[15..], 17).unwrap();
+        assert_eq!(17, outlen);
+
+        ctx.cipher_final_vec(&mut vec![0; 0]).unwrap();
+        assert_eq!(output_decrypted, output);
+    }
+
+    #[test]
+    #[should_panic(expected = "Output buffer size should be at least 33 bytes.")]
+    fn full_block_updates_aes_128() {
+        output_buffer_too_small(Cipher::aes_128_cbc());
+    }
+
+    #[test]
+    #[should_panic(expected = "Output buffer size should be at least 33 bytes.")]
+    fn full_block_updates_aes_256() {
+        output_buffer_too_small(Cipher::aes_256_cbc());
+    }
+
+    #[test]
+    #[should_panic(expected = "Output buffer size should be at least 17 bytes.")]
+    fn full_block_updates_3des() {
+        output_buffer_too_small(Cipher::des_ede3_cbc());
+    }
+
+    fn output_buffer_too_small(cipher: &'static CipherRef) {
+        let mut key = vec![0; cipher.key_length()];
+        rand_bytes(&mut key).unwrap();
+        let mut iv = vec![0; cipher.iv_length()];
+        rand_bytes(&mut iv).unwrap();
+
+        let mut ctx = CipherCtx::new().unwrap();
+
+        ctx.encrypt_init(Some(cipher), Some(&key), Some(&iv))
+            .unwrap();
+        ctx.set_padding(false);
+
+        let block_size = cipher.block_size();
+        assert!(block_size > 1, "Need a block cipher, not a stream cipher");
+
+        ctx.cipher_update(&vec![0; block_size + 1], Some(&mut vec![0; block_size - 1]))
+            .unwrap();
+    }
+
+    #[cfg(ossl102)]
+    fn cipher_wrap_test(cipher: &CipherRef, pt: &str, ct: &str, key: &str, iv: Option<&str>) {
+        let pt = hex::decode(pt).unwrap();
+        let key = hex::decode(key).unwrap();
+        let expected = hex::decode(ct).unwrap();
+        let iv = iv.map(|v| hex::decode(v).unwrap());
+        let padding = 8 - pt.len() % 8;
+        let mut computed = vec![0; pt.len() + padding + cipher.block_size() * 2];
+        let mut ctx = CipherCtx::new().unwrap();
+
+        ctx.set_flags(CipherCtxFlags::FLAG_WRAP_ALLOW);
+        ctx.encrypt_init(Some(cipher), Some(&key), iv.as_deref())
+            .unwrap();
+
+        let count = ctx.cipher_update(&pt, Some(&mut computed)).unwrap();
+        let rest = ctx.cipher_final(&mut computed[count..]).unwrap();
+        computed.truncate(count + rest);
+
+        if computed != expected {
+            println!("Computed: {}", hex::encode(&computed));
+            println!("Expected: {}", hex::encode(&expected));
+            if computed.len() != expected.len() {
+                println!(
+                    "Lengths differ: {} in computed vs {} expected",
+                    computed.len(),
+                    expected.len()
+                );
+            }
+            panic!("test failure");
+        }
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes128_wrap() {
+        let pt = "00112233445566778899aabbccddeeff";
+        let ct = "7940ff694448b5bb5139c959a4896832e55d69aa04daa27e";
+        let key = "2b7e151628aed2a6abf7158809cf4f3c";
+        let iv = "0001020304050607";
+
+        cipher_wrap_test(Cipher::aes_128_wrap(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes128_wrap_default_iv() {
+        let pt = "00112233445566778899aabbccddeeff";
+        let ct = "38f1215f0212526f8a70b51955b9fbdc9fe3041d9832306e";
+        let key = "2b7e151628aed2a6abf7158809cf4f3c";
+
+        cipher_wrap_test(Cipher::aes_128_wrap(), pt, ct, key, None);
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes128_wrap_pad() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "f13998f5ab32ef82a1bdbcbe585e1d837385b529572a1e1b";
+        let key = "2b7e151628aed2a6abf7158809cf4f3c";
+        let iv = "00010203";
+
+        cipher_wrap_test(Cipher::aes_128_wrap_pad(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes128_wrap_pad_default_iv() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "3a501085fb8cf66f4186b7df851914d471ed823411598add";
+        let key = "2b7e151628aed2a6abf7158809cf4f3c";
+
+        cipher_wrap_test(Cipher::aes_128_wrap_pad(), pt, ct, key, None);
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes192_wrap() {
+        let pt = "9f6dee187d35302116aecbfd059657efd9f7589c4b5e7f5b";
+        let ct = "83b89142dfeeb4871e078bfb81134d33e23fedc19b03a1cf689973d3831b6813";
+        let key = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b";
+        let iv = "0001020304050607";
+
+        cipher_wrap_test(Cipher::aes_192_wrap(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes192_wrap_default_iv() {
+        let pt = "9f6dee187d35302116aecbfd059657efd9f7589c4b5e7f5b";
+        let ct = "c02c2cf11505d3e4851030d5534cbf5a1d7eca7ba8839adbf239756daf1b43e6";
+        let key = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b";
+
+        cipher_wrap_test(Cipher::aes_192_wrap(), pt, ct, key, None);
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes192_wrap_pad() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "b4f6bb167ef7caf061a74da82b36ad038ca057ab51e98d3a";
+        let key = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b";
+        let iv = "00010203";
+
+        cipher_wrap_test(Cipher::aes_192_wrap_pad(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes192_wrap_pad_default_iv() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "b2c37a28cc602753a7c944a4c2555a2df9c98b2eded5312e";
+        let key = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b";
+
+        cipher_wrap_test(Cipher::aes_192_wrap_pad(), pt, ct, key, None);
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes256_wrap() {
+        let pt = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51";
+        let ct = "cc05da2a7f56f7dd0c144231f90bce58648fa20a8278f5a6b7d13bba6aa57a33229d4333866b7fd6";
+        let key = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
+        let iv = "0001020304050607";
+
+        cipher_wrap_test(Cipher::aes_256_wrap(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl102)]
+    fn test_aes256_wrap_default_iv() {
+        let pt = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51";
+        let ct = "0b24f068b50e52bc6987868411c36e1b03900866ed12af81eb87cef70a8d1911731c1d7abf789d88";
+        let key = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
+
+        cipher_wrap_test(Cipher::aes_256_wrap(), pt, ct, key, None);
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes256_wrap_pad() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "91594e044ccc06130d60e6c84a996aa4f96a9faff8c5f6e7";
+        let key = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
+        let iv = "00010203";
+
+        cipher_wrap_test(Cipher::aes_256_wrap_pad(), pt, ct, key, Some(iv));
+    }
+
+    #[test]
+    #[cfg(ossl110)]
+    fn test_aes256_wrap_pad_default_iv() {
+        let pt = "00112233445566778899aabbccddee";
+        let ct = "dc3c166a854afd68aea624a4272693554bf2e4fcbae602cd";
+        let key = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
+
+        cipher_wrap_test(Cipher::aes_256_wrap_pad(), pt, ct, key, None);
     }
 }

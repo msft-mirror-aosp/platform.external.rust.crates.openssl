@@ -1,0 +1,34 @@
+{
+  "apex_available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
+  "extra_cfg": ["boringssl"],
+  "features": [
+    "unstable_boringssl"
+  ],
+  "package": {
+    "openssl": {
+      "patch": "patches/Android.bp.diff"
+    }
+  },
+  "run_cargo": false,
+  "variants": [
+    {
+      "module_name_overrides": {
+        "libopenssl_sys": "libbssl_sys"
+      }
+    },
+    {
+      "module_name_overrides": {
+        "libopenssl": "libopenssl_static"
+      },
+      "package": {
+        "openssl": {
+          "device_supported": false,
+          "force_rlib": true
+        }
+      }
+    }
+  ]
+}

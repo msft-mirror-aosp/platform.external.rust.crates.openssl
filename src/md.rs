@@ -1,3 +1,5 @@
+//! Message digest algorithms.
+
 #[cfg(ossl300)]
 use crate::cvt_p;
 #[cfg(ossl300)]
@@ -148,25 +150,25 @@ impl Md {
         unsafe { MdRef::from_ptr(ffi::EVP_sha512() as *mut _) }
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     #[inline]
     pub fn sha3_224() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_sha3_224() as *mut _) }
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     #[inline]
     pub fn sha3_256() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_sha3_256() as *mut _) }
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     #[inline]
     pub fn sha3_384() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_sha3_384() as *mut _) }
     }
 
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl380))]
     #[inline]
     pub fn sha3_512() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_sha3_512() as *mut _) }
@@ -185,15 +187,14 @@ impl Md {
     }
 
     #[cfg(not(osslconf = "OPENSSL_NO_RMD160"))]
-    #[inline]
     #[cfg(not(boringssl))]
+    #[inline]
     pub fn ripemd160() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_ripemd160() as *mut _) }
     }
 
     #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM3")))]
     #[inline]
-    #[cfg(not(boringssl))]
     pub fn sm3() -> &'static MdRef {
         unsafe { MdRef::from_ptr(ffi::EVP_sm3() as *mut _) }
     }

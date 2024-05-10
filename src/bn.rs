@@ -91,7 +91,7 @@ foreign_type_and_impl_send_sync! {
     /// to allocate.  BigNumContext and the OpenSSL [`BN_CTX`] structure are used
     /// internally when passing BigNum values between subroutines.
     ///
-    /// [`BN_CTX`]: https://www.openssl.org/docs/man1.1.0/crypto/BN_CTX_new.html
+    /// [`BN_CTX`]: https://www.openssl.org/docs/manmaster/crypto/BN_CTX_new.html
     pub struct BigNumContext;
     /// Reference to [`BigNumContext`]
     ///
@@ -134,7 +134,7 @@ foreign_type_and_impl_send_sync! {
     ///
     /// [`new`]: struct.BigNum.html#method.new
     /// [`Dref<Target = BigNumRef>`]: struct.BigNum.html#deref-methods
-    /// [`BN_new`]: https://www.openssl.org/docs/man1.1.0/crypto/BN_new.html
+    /// [`BN_new`]: https://www.openssl.org/docs/manmaster/crypto/BN_new.html
     ///
     /// # Examples
     /// ```
@@ -217,6 +217,7 @@ impl BigNumRef {
     }
 
     /// The cryptographically weak counterpart to `rand_in_range`.
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_pseudo_rand_range)]
     pub fn pseudo_rand_range(&self, rnd: &mut BigNumRef) -> Result<(), ErrorStack> {
         unsafe { cvt(ffi::BN_pseudo_rand_range(rnd.as_ptr(), self.as_ptr())).map(|_| ()) }
@@ -334,8 +335,23 @@ impl BigNumRef {
         unsafe { BN_is_negative(self.as_ptr()) == 1 }
     }
 
+    /// Returns `true` is `self` is even.
+    #[corresponds(BN_is_even)]
+    #[cfg(any(ossl110, boringssl, libressl350))]
+    pub fn is_even(&self) -> bool {
+        !self.is_odd()
+    }
+
+    /// Returns `true` is `self` is odd.
+    #[corresponds(BN_is_odd)]
+    #[cfg(any(ossl110, boringssl, libressl350))]
+    pub fn is_odd(&self) -> bool {
+        unsafe { ffi::BN_is_odd(self.as_ptr()) == 1 }
+    }
+
     /// Returns the number of significant bits in `self`.
     #[corresponds(BN_num_bits)]
+    #[allow(clippy::unnecessary_cast)]
     pub fn num_bits(&self) -> i32 {
         unsafe { ffi::BN_num_bits(self.as_ptr()) as i32 }
     }
@@ -384,6 +400,7 @@ impl BigNumRef {
     }
 
     /// The cryptographically weak counterpart to `rand`.  Not suitable for key generation.
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_pseudo_rand)]
     #[allow(clippy::useless_conversion)]
     pub fn pseudo_rand(&mut self, bits: i32, msb: MsbOption, odd: bool) -> Result<(), ErrorStack> {
@@ -636,6 +653,25 @@ impl BigNumRef {
         }
     }
 
+    /// Places into `self` the modular square root of `a` such that `self^2 = a (mod p)`
+    #[corresponds(BN_mod_sqrt)]
+    pub fn mod_sqrt(
+        &mut self,
+        a: &BigNumRef,
+        p: &BigNumRef,
+        ctx: &mut BigNumContextRef,
+    ) -> Result<(), ErrorStack> {
+        unsafe {
+            cvt_p(ffi::BN_mod_sqrt(
+                self.as_ptr(),
+                a.as_ptr(),
+                p.as_ptr(),
+                ctx.as_ptr(),
+            ))
+            .map(|_| ())
+        }
+    }
+
     /// Places the result of `a^p` in `self`.
     #[corresponds(BN_exp)]
     pub fn exp(
@@ -721,6 +757,7 @@ impl BigNumRef {
     /// # Return Value
     ///
     /// Returns `true` if `self` is prime with an error probability of less than `0.25 ^ checks`.
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_is_prime_ex)]
     #[allow(clippy::useless_conversion)]
     pub fn is_prime(&self, checks: i32, ctx: &mut BigNumContextRef) -> Result<bool, ErrorStack> {
@@ -744,6 +781,7 @@ impl BigNumRef {
     /// # Return Value
     ///
     /// Returns `true` if `self` is prime with an error probability of less than `0.25 ^ checks`.
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[corresponds(BN_is_prime_fasttest_ex)]
     #[allow(clippy::useless_conversion)]
     pub fn is_prime_fasttest(
@@ -809,7 +847,7 @@ impl BigNumRef {
     /// assert_eq!(&bn_vec, &[0, 0, 0x45, 0x43]);
     /// ```
     #[corresponds(BN_bn2binpad)]
-    #[cfg(any(boringssl, ossl110))]
+    #[cfg(any(ossl110, libressl340, boringssl))]
     pub fn to_vec_padded(&self, pad_to: i32) -> Result<Vec<u8>, ErrorStack> {
         let mut v = Vec::with_capacity(pad_to as usize);
         unsafe {
@@ -1058,7 +1096,7 @@ impl BigNum {
     ///
     /// OpenSSL documentation at [`BN_bin2bn`]
     ///
-    /// [`BN_bin2bn`]: https://www.openssl.org/docs/man1.1.0/crypto/BN_bin2bn.html
+    /// [`BN_bin2bn`]: https://www.openssl.org/docs/manmaster/crypto/BN_bin2bn.html
     ///
     /// ```
     /// # use openssl::bn::BigNum;
@@ -1190,7 +1228,7 @@ impl Ord for BigNumRef {
 
 impl PartialOrd for BigNum {
     fn partial_cmp(&self, oth: &BigNum) -> Option<Ordering> {
-        self.deref().partial_cmp(oth.deref())
+        Some(self.cmp(oth))
     }
 }
 
@@ -1387,6 +1425,7 @@ mod tests {
         assert_eq!(a, &(&a << 1) >> 1);
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_rand_range() {
         let range = BigNum::from_u32(909_829_283).unwrap();
@@ -1395,6 +1434,7 @@ mod tests {
         assert!(result >= BigNum::from_u32(0).unwrap() && result < range);
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_pseudo_rand_range() {
         let range = BigNum::from_u32(909_829_283).unwrap();
@@ -1403,6 +1443,7 @@ mod tests {
         assert!(result >= BigNum::from_u32(0).unwrap() && result < range);
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_DEPRECATED_3_0"))]
     #[test]
     fn test_prime_numbers() {
         let a = BigNum::from_u32(19_029_017).unwrap();
@@ -1446,5 +1487,37 @@ mod tests {
         let mut b = BigNum::new().unwrap();
         b.set_const_time();
         assert!(b.is_const_time())
+    }
+
+    #[test]
+    fn test_mod_sqrt() {
+        let mut ctx = BigNumContext::new().unwrap();
+
+        let s = BigNum::from_hex_str("2").unwrap();
+        let p = BigNum::from_hex_str("7DEB1").unwrap();
+        let mut sqrt = BigNum::new().unwrap();
+        let mut out = BigNum::new().unwrap();
+
+        // Square the root because OpenSSL randomly returns one of 2E42C or 4FA85
+        sqrt.mod_sqrt(&s, &p, &mut ctx).unwrap();
+        out.mod_sqr(&sqrt, &p, &mut ctx).unwrap();
+        assert!(out == s);
+
+        let s = BigNum::from_hex_str("3").unwrap();
+        let p = BigNum::from_hex_str("5").unwrap();
+        assert!(out.mod_sqrt(&s, &p, &mut ctx).is_err());
+    }
+
+    #[test]
+    #[cfg(any(ossl110, boringssl, libressl350))]
+    fn test_odd_even() {
+        let a = BigNum::from_u32(17).unwrap();
+        let b = BigNum::from_u32(18).unwrap();
+
+        assert!(a.is_odd());
+        assert!(!b.is_odd());
+
+        assert!(!a.is_even());
+        assert!(b.is_even());
     }
 }
