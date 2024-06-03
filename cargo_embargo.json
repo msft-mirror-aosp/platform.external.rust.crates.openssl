@@ -3,7 +3,7 @@
     "//apex_available:platform",
     "com.android.virt"
   ],
-  "extra_cfg": ["boringssl", "soong"],
+  "extra_cfg": ["boringssl"],
   "features": [
     "unstable_boringssl"
   ],
