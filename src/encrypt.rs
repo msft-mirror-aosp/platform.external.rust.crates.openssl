@@ -40,7 +40,7 @@
 //! assert_eq!(&*decrypted, data);
 //! ```
 #[cfg(any(ossl102, libressl310))]
-use libc::{c_int, c_void};
+use libc::c_int;
 use std::{marker::PhantomData, ptr};
 
 use crate::error::ErrorStack;
@@ -113,7 +113,7 @@ impl<'a> Encrypter<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_padding`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_padding.html
+    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_padding.html
     pub fn set_rsa_padding(&mut self, padding: Padding) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_padding(
@@ -174,7 +174,7 @@ impl<'a> Encrypter<'a> {
 
             cvt(ffi::EVP_PKEY_CTX_set0_rsa_oaep_label(
                 self.pctx,
-                p as *mut c_void,
+                p,
                 label.len() as c_int,
             ))
             .map(|_| ())
@@ -317,7 +317,7 @@ impl<'a> Decrypter<'a> {
     ///
     /// This corresponds to [`EVP_PKEY_CTX_set_rsa_padding`].
     ///
-    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_PKEY_CTX_set_rsa_padding.html
+    /// [`EVP_PKEY_CTX_set_rsa_padding`]: https://www.openssl.org/docs/manmaster/crypto/EVP_PKEY_CTX_set_rsa_padding.html
     pub fn set_rsa_padding(&mut self, padding: Padding) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::EVP_PKEY_CTX_set_rsa_padding(
@@ -378,7 +378,7 @@ impl<'a> Decrypter<'a> {
 
             cvt(ffi::EVP_PKEY_CTX_set0_rsa_oaep_label(
                 self.pctx,
-                p as *mut c_void,
+                p,
                 label.len() as c_int,
             ))
             .map(|_| ())
