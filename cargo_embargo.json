@@ -1,8 +1,10 @@
 {
   "apex_available": [
     "//apex_available:platform",
+    "com.android.configinfrastructure",
     "com.android.virt"
   ],
+  "min_sdk_version": "29",
   "extra_cfg": ["boringssl"],
   "features": [
     "unstable_boringssl"
@@ -17,6 +19,7 @@
     "libopenssl": [
         ":__subpackages__",
         "//external/rust/crates/tokio-openssl",
+        "//packages/modules/ConfigInfrastructure/aconfigd",
         "//packages/modules/Virtualization/android/virtualizationservice",
         "//packages/modules/Virtualization/guest/authfs",
         "//packages/modules/Virtualization/guest/authfs/src/fsverity/metadata",
@@ -30,6 +33,7 @@
         "//system/authgraph/boringssl",
         "//system/keymint/boringssl",
         "//system/security/keystore2/tests",
+        "//system/software_defined_vehicle/core_services/sdv_comms/sdk",
         "//system/software_defined_vehicle/core_services/service_authn",
         "//system/software_defined_vehicle/core_services/service_discovery/sdv_sd_agent",
         "//system/software_defined_vehicle/core_services/vsidl/middleware/rpc/transport/grpc",
