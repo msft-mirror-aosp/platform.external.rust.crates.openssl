@@ -43,7 +43,7 @@ rust_library {
     min_sdk_version: "29",
     visibility: [
         ":__subpackages__",
-        "//external/rust/crates/tokio-openssl",
+        "//external/rust/android-crates-io/crates/tokio-openssl",
         "//packages/modules/ConfigInfrastructure/aconfigd",
         "//packages/modules/Virtualization/android/virtualizationservice",
         "//packages/modules/Virtualization/guest/authfs",
