@@ -1,0 +1,95 @@
+From ef81d97a30ce0277be9eba813131f07f9328e3a6 Mon Sep 17 00:00:00 2001
+From: Viktoriia Kovalova <vkovalova@google.com>
+Date: Wed, 13 Nov 2024 15:42:48 +0000
+Subject: [PATCH] Enable set_alpn_select_callback for BoringSSL
+
+---
+ src/ssl/callbacks.rs |  4 ++--
+ src/ssl/mod.rs       | 21 ++++++++++++++-------
+ 2 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/src/ssl/callbacks.rs b/src/ssl/callbacks.rs
+index ccf53085..f7e51a5d 100644
+--- a/src/ssl/callbacks.rs
++++ b/src/ssl/callbacks.rs
+@@ -19,7 +19,7 @@ use crate::dh::Dh;
+ use crate::ec::EcKey;
+ use crate::error::ErrorStack;
+ use crate::pkey::Params;
+-#[cfg(any(ossl102, libressl261))]
++#[cfg(any(ossl102, libressl261, boringssl))]
+ use crate::ssl::AlpnError;
+ use crate::ssl::{
+     try_get_session_ctx_index, SniError, Ssl, SslAlert, SslContext, SslContextRef, SslRef,
+@@ -178,7 +178,7 @@ where
+     }
+ }
+ 
+-#[cfg(any(ossl102, libressl261))]
++#[cfg(any(ossl102, libressl261, boringssl))]
+ pub extern "C" fn raw_alpn_select<F>(
+     ssl: *mut ffi::SSL,
+     out: *mut *const c_uchar,
+diff --git a/src/ssl/mod.rs b/src/ssl/mod.rs
+index d9b2a724..f5a696ab 100644
+--- a/src/ssl/mod.rs
++++ b/src/ssl/mod.rs
+@@ -602,17 +602,17 @@ impl SslAlert {
+ 
+ /// An error returned from an ALPN selection callback.
+ ///
+-/// Requires OpenSSL 1.0.2 or LibreSSL 2.6.1 or newer.
+-#[cfg(any(ossl102, libressl261))]
++/// Requires BoringSSL or OpenSSL 1.0.2 or LibreSSL 2.6.1 or newer.
++#[cfg(any(ossl102, libressl261, boringssl))]
+ #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+ pub struct AlpnError(c_int);
+ 
+-#[cfg(any(ossl102, libressl261))]
++#[cfg(any(ossl102, libressl261, boringssl))]
+ impl AlpnError {
+     /// Terminate the handshake with a fatal alert.
+     ///
+-    /// Requires OpenSSL 1.1.0 or newer.
+-    #[cfg(ossl110)]
++    /// Requires BoringSSL or OpenSSL 1.1.0 or newer.
++    #[cfg(any(ossl110, boringssl))]
+     pub const ALERT_FATAL: AlpnError = AlpnError(ffi::SSL_TLSEXT_ERR_ALERT_FATAL);
+ 
+     /// Do not select a protocol, but continue the handshake.
+@@ -1267,23 +1267,30 @@ impl SslContextBuilder {
+     /// of those protocols on success. The [`select_next_proto`] function implements the standard
+     /// protocol selection algorithm.
+     ///
+-    /// Requires OpenSSL 1.0.2 or LibreSSL 2.6.1 or newer.
++    /// Requires BoringSSL or OpenSSL 1.0.2 or LibreSSL 2.6.1 or newer.
+     ///
+     /// [`SslContextBuilder::set_alpn_protos`]: struct.SslContextBuilder.html#method.set_alpn_protos
+     /// [`select_next_proto`]: fn.select_next_proto.html
+     #[corresponds(SSL_CTX_set_alpn_select_cb)]
+-    #[cfg(any(ossl102, libressl261))]
++    #[cfg(any(ossl102, libressl261, boringssl))]
+     pub fn set_alpn_select_callback<F>(&mut self, callback: F)
+     where
+         F: for<'a> Fn(&mut SslRef, &'a [u8]) -> Result<&'a [u8], AlpnError> + 'static + Sync + Send,
+     {
+         unsafe {
+             self.set_ex_data(SslContext::cached_ex_index::<F>(), callback);
++            #[cfg(not(boringssl))]
+             ffi::SSL_CTX_set_alpn_select_cb__fixed_rust(
+                 self.as_ptr(),
+                 Some(callbacks::raw_alpn_select::<F>),
+                 ptr::null_mut(),
+             );
++            #[cfg(boringssl)]
++            ffi::SSL_CTX_set_alpn_select_cb(
++                self.as_ptr(),
++                Some(callbacks::raw_alpn_select::<F>),
++                ptr::null_mut(),
++            );
+         }
+     }
+ 
+-- 
+2.47.0.277.g8800431eea-goog
+
